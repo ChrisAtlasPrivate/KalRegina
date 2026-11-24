@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Adventskalender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Nunito:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --night: #0c1a2c;
+    --night-2: #1b3050;
+    --fir: #163b2f;
+    --cranberry: #9e1f2c;
+    --cranberry-dark: #6f1520;
+    --gold: #dcae52;
+    --snow: #f5f2ec;
+    --text: #f5f2ec;
+    --muted: #b9c4d3;
+    --board: #7c1a24;
+    color-scheme: dark;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --night: #08131f; --night-2: #152842; }
+  }
+  :root[data-theme="dark"] { --night: #08131f; --night-2: #152842; }
+
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Nunito", system-ui, sans-serif;
+    color: var(--text);
+    background: var(--night);
+    background-image:
+      radial-gradient(ellipse at 50% 0%, var(--night-2) 0%, var(--night) 70%);
+    overflow-x: hidden;
+  }
+
+  /* Winterlandschaft */
+  .scene { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .scene svg { position: absolute; bottom: 0; left: 0; width: 100%; height: 38vh; min-height: 220px; }
+  .stars { position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, #fff9 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 8%, #fff8 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 45% 22%, #fff7 50%, transparent 51%),
+      radial-gradient(1px 1px at 63% 12%, #fff9 50%, transparent 51%),
+      radial-gradient(2px 2px at 78% 26%, #fffa 50%, transparent 51%),
+      radial-gradient(1px 1px at 90% 6%, #fff8 50%, transparent 51%),
+      radial-gradient(1px 1px at 6% 40%, #fff6 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 85% 44%, #fff6 50%, transparent 51%),
+      radial-gradient(1px 1px at 36% 36%, #fff5 50%, transparent 51%);
+  }
+  #snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+
+  main {
+    position: relative; z-index: 2;
+    max-width: 980px; margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3rem) clamp(.75rem, 3vw, 2rem) 4rem;
+  }
+  header { text-align: center; margin-bottom: clamp(1.25rem, 3vw, 2rem); }
+  h1 {
+    font-family: "DM Serif Display", Georgia, serif;
+    font-weight: 400;
+    font-size: clamp(2.4rem, 7vw, 4.5rem);
+    line-height: 1;
+    margin: 0;
+    color: var(--snow);
+    text-shadow: 0 2px 24px rgba(220,174,82,.35);
+  }
+  header p { margin: .6rem 0 0; color: var(--muted); font-size: 1rem; }
+
+  /* Kalenderbrett */
+  .board {
+    background: var(--board);
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 12px, transparent 12px 24px);
+    border: 3px solid var(--gold);
+    border-radius: 18px;
+    padding: clamp(.6rem, 2vw, 1.2rem);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 0 0 6px var(--cranberry-dark);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: minmax(90px, 1fr);
+    gap: clamp(.4rem, 1.2vw, .8rem);
+  }
+  @media (max-width: 720px) { .grid { grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(80px, 1fr); } }
+  @media (max-width: 420px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .slot {
+    position: relative; perspective: 900px;
+    overflow: hidden;           /* offene Tür bleibt in ihrem eigenen Rahmen */
+    border-radius: 6px;
+    isolation: isolate;
+  }
+  .slot::after {               /* Scharnierkante, damit die offene Tür angedeutet bleibt */
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 6px;
+    background: linear-gradient(90deg, #e9e2d4, #bfb5a3);
+    opacity: 0; transition: opacity .4s .3s; pointer-events: none; z-index: 2;
+  }
+  .slot.offen::after { opacity: 1; }
+
+  .inside {
+    position: absolute; inset: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #faf6ee;
+    box-shadow: inset 0 3px 10px rgba(0,0,0,.7);
+  }
+  .slot.offen .inside { cursor: pointer; }
+  .inside img { width: 100%; height: 100%; object-fit: contain; display: block; background: #faf6ee; }
+
+  .door {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    margin: 0; padding: 0; border: 0;
+    cursor: pointer;
+    background: none;
+    transform-style: preserve-3d;
+    transform-origin: left center;
+    transition: transform .7s cubic-bezier(.3,.7,.3,1);
+    border-radius: 6px;
+    font: inherit; color: inherit;
+  }
+  .door .face, .door .back {
+    position: absolute; inset: 0; border-radius: 6px;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  }
+  .door .face {
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px dashed rgba(220,174,82,.55);
+    box-shadow: 0 2px 0 rgba(0,0,0,.25);
+  }
+  .door .back {
+    transform: rotateY(180deg);
+    background: #e9e2d4;
+    background-image: repeating-linear-gradient(90deg, rgba(0,0,0,.04) 0 2px, transparent 2px 6px);
+  }
+  .door .num {
+    font-family: "DM Serif Display", Georgia, serif;
+    font-size: clamp(1.6rem, 4.5vw, 2.6rem);
+    line-height: 1;
+    color: var(--snow);
+    text-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  .slot.gross .num { font-size: clamp(2.2rem, 6vw, 3.6rem); }
+  .door:hover .face { border-color: var(--gold); }
+  .door:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+  .door[aria-pressed="true"] { transform: rotateY(-108deg); }
+  .door[aria-pressed="true"] .face { box-shadow: none; }
+
+  /* Türfarben */
+  .c0 .face { background: var(--cranberry); }
+  .c1 .face { background: var(--fir); }
+  .c2 .face { background: #23406a; }
+  .c3 .face { background: #8a5a1e; }
+  .c4 .face { background: #5b1a3c; }
+
+  @keyframes wackeln {
+    0%, 100% { transform: rotateY(0); }
+    20% { transform: rotateY(-14deg); }
+    45% { transform: rotateY(-4deg); }
+    65% { transform: rotateY(-10deg); }
+    85% { transform: rotateY(-2deg); }
+  }
+  .door.wackeln { animation: wackeln .5s ease-out; }
+  .hinweis {
+    min-height: 1.5em; margin: 1rem 0 0; text-align: center;
+    color: var(--gold); font-weight: 600;
+    opacity: 0; transition: opacity .3s;
+  }
+  .hinweis.sichtbar { opacity: 1; }
+
+  footer { text-align: center; margin-top: 1.5rem; }
+  @media (prefers-reduced-motion: reduce) { .door.wackeln { animation: none; } }
+  .reset {
+    font: inherit; font-size: .9rem;
+    color: var(--muted);
+    background: rgba(12,26,44,.6);
+    border: 1px solid rgba(185,196,211,.35);
+    border-radius: 999px;
+    padding: .45rem 1rem;
+    cursor: pointer;
+  }
+  .version { margin: .5rem 0 0; font-size: .75rem; color: var(--muted); opacity: .7; }
+  .reset:hover { color: var(--snow); border-color: var(--snow); }
+  .reset:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .door { transition: none; }
+    #snow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" aria-hidden="true">
+  <div class="stars"></div>
+  <svg viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice">
+    <path d="M0 260 Q 200 190 420 240 T 820 220 T 1200 230 V400 H0Z" fill="#c9d5e3" opacity=".35"/>
+    <g fill="#0f2b22" opacity=".8">
+      <polygon points="110,250 140,170 170,250"/><polygon points="120,215 140,150 160,215"/>
+      <polygon points="930,235 965,140 1000,235"/><polygon points="943,195 965,120 987,195"/>
+      <polygon points="1040,245 1065,180 1090,245"/>
+    </g>
+    <g fill="#0b1726">
+      <rect x="560" y="210" width="70" height="50"/><polygon points="550,212 595,175 640,212"/>
+      <rect x="650" y="225" width="50" height="38"/><polygon points="642,227 675,198 708,227"/>
+    </g>
+    <g fill="#ffd77a">
+      <rect x="575" y="225" width="12" height="12"/><rect x="603" y="225" width="12" height="12"/>
+      <rect x="668" y="238" width="10" height="10"/>
+    </g>
+    <path d="M0 300 Q 300 250 600 295 T 1200 285 V400 H0Z" fill="#e8eef5"/>
+    <g fill="#163b2f">
+      <polygon points="40,320 80,200 120,320"/><polygon points="52,270 80,170 108,270"/>
+      <polygon points="230,315 260,230 290,315"/>
+      <polygon points="1100,315 1140,195 1180,315"/><polygon points="1112,262 1140,165 1168,262"/>
+    </g>
+    <path d="M0 345 Q 400 310 800 340 T 1200 335 V400 H0Z" fill="#f5f2ec"/>
+  </svg>
+</div>
+<canvas id="snow" aria-hidden="true"></canvas>
+
+<main>
+  <header>
+    <h1>Adventskalender</h1>
+    <p class="version" id="version"></p>
+  </header>
+
+  <div class="board">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <p class="hinweis" id="hinweis" role="status" aria-live="polite"></p>
+
+  <footer>
+    <button class="reset" id="reset" type="button">Alle Türen schließen</button>
+  </footer>
+</main>
+
+<script>
+/* Versionsnummer: bei jeder Änderung erhöhen, sie steht unten auf der Seite */
+const VERSION = "1.2 (18.11.2026)";
+document.getElementById("version").textContent = "Version " + VERSION;
+/* ================================================================
+   BILDER: Standardmäßig werden die Dateien im Ordner "bilder" geladen:
+   bilder/tuer01.jpg bis bilder/tuer24.jpg
+   Zum Austauschen einfach die Dateien mit gleichem Namen ersetzen.
+   Abweichende Dateien oder Adressen können hier eingetragen werden,
+   z. B.  5: "bilder/nikolaus.png",
+   Lässt sich ein Bild nicht laden, erscheint ein Testbild mit der Zahl.
+   ================================================================ */
+const BILDER = {
+  // 5: "bilder/nikolaus.png",
+};
+const bildPfad = n => BILDER[n] || `bilder/tuer${String(n).padStart(2, "0")}.jpg`;
+
+/* ================================================================
+   TÖNE: Beim Öffnen einer Tür wird die passende Datei aus dem Ordner
+   "toene" abgespielt: toene/Tuer01.m4a bis toene/Tuer24.m4a
+   Fehlt eine Datei, bleibt es bei dieser Tür still.
+   Ausnahme Tür 24: Ohne eigene Datei erklingt „O Tannenbaum“.
+   Abweichende Dateien hier eintragen, z. B.  6: "toene/nikolaus.m4a",
+   ================================================================ */
+const TOENE = {
+  // 6: "toene/nikolaus.m4a",
+};
+const tonPfad = n => TOENE[n] || `toene/Tuer${String(n).padStart(2, "0")}.m4a`;
+
+/* Die Töne werden über dieselbe Audio-Technik abgespielt wie die Türgeräusche
+   (Web Audio), weil iPhone und iPad normale Audio-Elemente nach einer
+   Verzögerung blockieren. Die Datei der nächsten Tür wird vorab geladen. */
+const LOKAL = location.protocol === "file:"; // Web Audio kann lokal keine Dateien laden
+const tonCache = {};
+function ladeTon(n) {
+  if (LOKAL || !n) return Promise.resolve(null);
+  if (!(n in tonCache)) {
+    tonCache[n] = fetch(tonPfad(n))
+      .then(r => { if (!r.ok) throw new Error("fehlt"); return r.arrayBuffer(); })
+      .then(daten => new Promise((ok, fehler) => {
+        const ctx = audio();
+        if (!ctx) return fehler(new Error("kein Audio"));
+        ctx.decodeAudioData(daten, ok, fehler);
+      }))
+      .catch(() => { delete tonCache[n]; return null; });
+  }
+  return tonCache[n];
+}
+
+const player = new Audio(); // nur für lokal geöffnete Dateien
+let aktuellerTon = null;    // { n, quelle, gain, timer }
+
+function spieleTon(n) {
+  stoppeTon();
+  const eintrag = { n, quelle: null, gain: null, timer: null };
+  aktuellerTon = eintrag;
+
+  if (LOKAL) {
+    player.src = tonPfad(n);
+    player.onerror = () => { if (aktuellerTon === eintrag && n === 24) spieleTannenbaum(); };
+    eintrag.timer = setTimeout(() => {
+      if (aktuellerTon !== eintrag) return;
+      const p = player.play();
+      if (p && p.catch) p.catch(() => {});
+    }, 500);
+    return;
+  }
+
+  const ctx = audio();
+  const startZeit = ctx ? ctx.currentTime + 0.5 : 0; // nach dem Türknarzen
+  ladeTon(n).then(buffer => {
+    if (aktuellerTon !== eintrag) return;
+    if (!buffer || !ctx) { if (n === 24) spieleTannenbaum(); return; }
+    const quelle = ctx.createBufferSource();
+    quelle.buffer = buffer;
+    const gain = ctx.createGain();
+    quelle.connect(gain).connect(ctx.destination);
+    quelle.start(Math.max(startZeit, ctx.currentTime));
+    quelle.onended = () => { if (aktuellerTon === eintrag) aktuellerTon = null; };
+    eintrag.quelle = quelle; eintrag.gain = gain;
+  });
+}
+
+function stoppeTon() {
+  const e = aktuellerTon;
+  aktuellerTon = null;
+  if (e) {
+    clearTimeout(e.timer);
+    if (e.quelle && audioCtx) {
+      const t = audioCtx.currentTime;
+      try {
+        e.gain.gain.setValueAtTime(e.gain.gain.value, t);
+        e.gain.gain.linearRampToValueAtTime(0, t + 0.25);
+        e.quelle.stop(t + 0.3);
+      } catch (err) {}
+    }
+    if (LOKAL) { try { player.pause(); player.currentTime = 0; } catch (err) {} }
+  }
+  stoppeTannenbaum();
+}
+
+const STORAGE_KEY = "adventskalender-v1";
+
+// TESTMODUS: Tür 24 lässt sich sofort öffnen. Für den echten Betrieb auf false setzen.
+const TESTMODUS = false;
+
+function testBild(n) {
+  const farben = ["#f3d27a", "#cfe3d4", "#f2c1c4", "#c9d8ef", "#f0dcc0"];
+  const bg = farben[n % farben.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+    <rect width="200" height="200" fill="${bg}"/>
+    <circle cx="100" cy="100" r="78" fill="none" stroke="#9e1f2c" stroke-width="4" stroke-dasharray="6 8"/>
+    <text x="100" y="128" text-anchor="middle" font-family="Georgia, serif" font-size="86" fill="#6f1520">${n}</text>
+  </svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+
+function ladeZustand() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (Array.isArray(s.order) && s.order.length === 24) return s;
+    }
+  } catch (e) { /* Speicher nicht verfügbar */ }
+  return null;
+}
+function speichere(state) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function neuerZustand() {
+  const order = Array.from({ length: 24 }, (_, i) => i + 1);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  // einige Türen größer machen, damit der Kalender lebendiger wirkt
+  const sizes = {};
+  const groessen = ["wide", "tall", "wide", "tall", "wide"];
+  const kandidaten = [...order].sort(() => Math.random() - 0.5).slice(0, groessen.length);
+  kandidaten.forEach((n, i) => sizes[n] = groessen[i]);
+  sizes[24] = "wide tall"; // die 24 ist die große Tür
+  const colors = {};
+  order.forEach(n => colors[n] = Math.floor(Math.random() * 5));
+  return { order, sizes, colors, open: [] };
+}
+
+let state = ladeZustand() || neuerZustand();
+speichere(state);
+
+const grid = document.getElementById("grid");
+
+function render() {
+  grid.innerHTML = "";
+  state.order.forEach(n => {
+    const offen = state.open.includes(n);
+    const slot = document.createElement("div");
+    slot.className = "slot" + (offen ? " offen" : "");
+    slot.dataset.n = n;
+    slot.innerHTML = `
+      <div class="inside"><img alt="Bild hinter Tür ${n}" src="${bildPfad(n)}"></div>
+      <button class="door c${state.colors[n] ?? 0}" type="button"
+              aria-pressed="${offen}" aria-label="Tür ${n}">
+        <span class="face"><span class="num">${n}</span></span>
+        <span class="back"></span>
+      </button>`;
+    slot.querySelector("img").addEventListener("error", e => {
+      if (!e.target.dataset.ersatz) { e.target.dataset.ersatz = "1"; e.target.src = testBild(n); }
+    });
+    slot.querySelector(".door").addEventListener("click", e => toggle(n, e.currentTarget));
+    slot.querySelector(".inside").addEventListener("click", () => {
+      if (state.open.includes(n)) toggle(n, slot.querySelector(".door"));
+    });
+    grid.appendChild(slot);
+  });
+}
+
+function naechsteTuer() {
+  for (let i = 1; i <= 24; i++) if (!state.open.includes(i)) return i;
+  return null;
+}
+
+let hinweisTimer;
+function zeigeHinweis(text) {
+  const el = document.getElementById("hinweis");
+  el.textContent = text;
+  el.classList.add("sichtbar");
+  clearTimeout(hinweisTimer);
+  hinweisTimer = setTimeout(() => el.classList.remove("sichtbar"), 2600);
+}
+
+/* Türgeräusche, direkt im Browser erzeugt (keine Audiodateien nötig) */
+let audioCtx = null;
+// iPhone/iPad: Ton auch im Stumm-Modus wie ein Medienplayer ausgeben (Safari 16.4+)
+try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+
+function audio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state !== "running") audioCtx.resume();
+  } catch (e) { audioCtx = null; }
+  return audioCtx;
+}
+
+// iOS gibt Audio erst nach einer Berührung frei: beim ersten Tippen still „anspielen“
+function audioFreischalten() {
+  const ctx = audio();
+  if (ctx) {
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, 22050);
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch (e) {}
+  }
+}
+["touchend", "pointerup", "mousedown", "keydown"].forEach(ev =>
+  document.addEventListener(ev, audioFreischalten, { capture: true, passive: true })
+);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && audioCtx && audioCtx.state !== "running") audioCtx.resume().catch(() => {});
+});
+
+function rauschen(ctx, dauer) {
+  const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dauer), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  return src;
+}
+
+// Knarzen beim Öffnen: Sägezahn mit ruckelnden Impulsen (wie ein trockenes Scharnier)
+function knarzen() {
+  const ctx = audio(); if (!ctx) return;
+  const t = ctx.currentTime, dauer = 0.6;
+  const osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(110, t);
+  osc.frequency.linearRampToValueAtTime(175, t + dauer * 0.45);
+  osc.frequency.linearRampToValueAtTime(130, t + dauer);
+
+  const puls = ctx.createGain();
+  puls.gain.setValueAtTime(0, t);
+  let z = t;
+  while (z < t + dauer) {
+    const staerke = 0.5 + Math.random() * 0.5;
+    puls.gain.setValueAtTime(staerke, z);
+    puls.gain.exponentialRampToValueAtTime(0.02, z + 0.012);
+    z += 0.014 + Math.random() * 0.016;
+  }
+
+  const band = ctx.createBiquadFilter();
+  band.type = "bandpass"; band.frequency.value = 1100; band.Q.value = 2.5;
+  const huelle = ctx.createGain();
+  huelle.gain.setValueAtTime(0.0001, t);
+  huelle.gain.exponentialRampToValueAtTime(0.35, t + 0.05);
+  huelle.gain.setValueAtTime(0.35, t + dauer - 0.15);
+  huelle.gain.exponentialRampToValueAtTime(0.0001, t + dauer);
+
+  osc.connect(puls).connect(band).connect(huelle).connect(ctx.destination);
+  osc.start(t); osc.stop(t + dauer + 0.05);
+}
+
+// Zuklappen: dumpfer Schlag plus kurzes Klicken des Riegels
+function zuklappen() {
+  const ctx = audio(); if (!ctx) return;
+  const t = ctx.currentTime + 0.45; // passend zum Ende der Schließbewegung
+
+  const schlag = rauschen(ctx, 0.25);
+  const tief = ctx.createBiquadFilter();
+  tief.type = "lowpass"; tief.frequency.value = 380;
+  const g1 = ctx.createGain();
+  g1.gain.setValueAtTime(0.9, t);
+  g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  schlag.connect(tief).connect(g1).connect(ctx.destination);
+  schlag.start(t);
+
+  const klick = rauschen(ctx, 0.04);
+  const hoch = ctx.createBiquadFilter();
+  hoch.type = "highpass"; hoch.frequency.value = 2500;
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.35, t + 0.02);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  klick.connect(hoch).connect(g2).connect(ctx.destination);
+  klick.start(t + 0.02);
+}
+
+// Verschlossen: kurzes Rütteln an der Tür mit klapperndem Riegel
+function klappern() {
+  const ctx = audio(); if (!ctx) return;
+  const t0 = ctx.currentTime;
+  [0, 0.09, 0.17].forEach((versatz, i) => {
+    const t = t0 + versatz;
+    const stoss = rauschen(ctx, 0.08);
+    const tief = ctx.createBiquadFilter();
+    tief.type = "lowpass"; tief.frequency.value = 600 - i * 80;
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.6, t);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    stoss.connect(tief).connect(g1).connect(ctx.destination);
+    stoss.start(t);
+
+    const riegel = rauschen(ctx, 0.03);
+    const metall = ctx.createBiquadFilter();
+    metall.type = "bandpass"; metall.frequency.value = 2200 + Math.random() * 600; metall.Q.value = 8;
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.5, t + 0.005);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    riegel.connect(metall).connect(g2).connect(ctx.destination);
+    riegel.start(t + 0.005);
+  });
+}
+
+/* „O Tannenbaum“ (traditionelles Volkslied) als Spieluhr beim Öffnen der 24 */
+const TON = { B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G4: 392.0, G5: 783.99, A5: 880.0 };
+const ZEILE_A = [
+  ["G4", 1],
+  ["C5", .75], ["C5", .25], ["C5", 1], ["D5", 1],
+  ["E5", .75], ["E5", .25], ["E5", 1.5], ["E5", .5],
+  ["D5", .5], ["E5", .5], ["F5", 1], ["B4", 1],
+  ["D5", 1], ["C5", 2]
+];
+const ZEILE_B = [
+  ["G5", .5], ["G5", .5], ["E5", 1], ["A5", 1.5],
+  ["G5", .5], ["G5", .5], ["F5", .5], ["F5", 2],
+  ["F5", .5], ["F5", .5], ["D5", 1], ["G5", 1.5],
+  ["F5", .5], ["F5", .5], ["E5", .5], ["E5", 1.5]
+];
+const TANNENBAUM = [...ZEILE_A, ...ZEILE_A, ...ZEILE_B, ...ZEILE_A];
+
+let liedGain = null;
+function spieleTannenbaum() {
+  const ctx = audio(); if (!ctx) return;
+  stoppeTannenbaum();
+  liedGain = ctx.createGain();
+  liedGain.gain.value = 0.22;
+  liedGain.connect(ctx.destination);
+  const schlag = 0.48; // Sekunden pro Viertel
+  let t = ctx.currentTime + 0.7; // nach dem Türknarzen
+  TANNENBAUM.forEach(([note, dauer]) => {
+    const f = TON[note];
+    [[1, 1], [2, 0.25], [3.01, 0.08]].forEach(([mult, laut]) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = f * mult;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(laut, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+      osc.connect(g).connect(liedGain);
+      osc.start(t); osc.stop(t + 1.5);
+    });
+    t += dauer * schlag;
+  });
+}
+function stoppeTannenbaum() {
+  if (!liedGain || !audioCtx) return;
+  const g = liedGain; liedGain = null;
+  const t = audioCtx.currentTime;
+  g.gain.setValueAtTime(g.gain.value, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+  setTimeout(() => g.disconnect(), 400);
+}
+
+function toggle(n, btn) {
+  const idx = state.open.indexOf(n);
+  if (idx === -1) {
+    const naechste = naechsteTuer();
+    if (n !== naechste && !(TESTMODUS && n === 24)) {
+      btn.classList.remove("wackeln");
+      void btn.offsetWidth;
+      btn.classList.add("wackeln");
+      klappern();
+      zeigeHinweis(`Erst ist Tür ${naechste} dran.`);
+      return;
+    }
+    state.open.push(n);
+    knarzen();
+    spieleTon(n);
+  } else {
+    state.open.splice(idx, 1);
+    zuklappen();
+    if (aktuellerTon && aktuellerTon.n === n) stoppeTon();
+    else if (n === 24) stoppeTannenbaum();
+  }
+  btn.setAttribute("aria-pressed", idx === -1 ? "true" : "false");
+  btn.parentElement.classList.toggle("offen", idx === -1);
+  speichere(state);
+  ladeTon(naechsteTuer()); // nächsten Ton vorab laden
+}
+
+document.getElementById("reset").addEventListener("click", () => {
+  state.open = [];
+  stoppeTon();
+  speichere(state);
+  document.querySelectorAll(".door").forEach(d => d.setAttribute("aria-pressed", "false"));
+  document.querySelectorAll(".slot").forEach(s => s.classList.remove("offen"));
+});
+
+render();
+
+/* Lückenlose Anordnung: Türen werden so platziert und vergrößert,
+   dass das Brett bei jeder Spaltenzahl vollständig gefüllt ist. */
+function spalten() {
+  return getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length || 6;
+}
+
+let letzteSpalten = 0;
+function layout() {
+  const C = spalten();
+  letzteSpalten = C;
+  const occ = [];
+  const rects = {};
+  const get = (r, c) => (occ[r] || [])[c];
+  const belege = (n, rect) => {
+    for (let rr = rect.r; rr < rect.r + rect.h; rr++)
+      for (let cc = rect.c; cc < rect.c + rect.w; cc++) (occ[rr] = occ[rr] || [])[cc] = n;
+  };
+
+  // 1. Türen der Reihe nach in die jeweils erste freie Zelle setzen
+  let r = 0, c = 0;
+  state.order.forEach(n => {
+    while (get(r, c) !== undefined) { c++; if (c >= C) { c = 0; r++; } }
+    const s = state.sizes[n] || "";
+    let w = s.includes("wide") ? 2 : 1;
+    const h = s.includes("tall") ? 2 : 1;
+    if (w === 2 && (c + 1 >= C || get(r, c + 1) !== undefined)) w = 1;
+    rects[n] = { r, c, w, h };
+    belege(n, rects[n]);
+  });
+
+  // 2. Verbleibende Lücken schließen, indem Nachbartüren wachsen
+  const zeilen = occ.length;
+  const frei = (rr, cc) => rr >= 0 && rr < zeilen && cc >= 0 && cc < C && get(rr, cc) === undefined;
+  const spalteFrei = (rr0, h, cc) => { for (let i = 0; i < h; i++) if (!frei(rr0 + i, cc)) return false; return true; };
+  const zeileFrei = (cc0, w, rr) => { for (let i = 0; i < w; i++) if (!frei(rr, cc0 + i)) return false; return true; };
+
+  function versuche(rr, cc, maxGroesse) {
+    const oben = get(rr - 1, cc);
+    if (oben !== undefined) {
+      const q = rects[oben];
+      if (q.h < maxGroesse && zeileFrei(q.c, q.w, q.r + q.h)) { q.h++; belege(oben, q); return true; }
+    }
+    const links = get(rr, cc - 1);
+    if (links !== undefined) {
+      const q = rects[links];
+      if (q.w < maxGroesse && spalteFrei(q.r, q.h, q.c + q.w)) { q.w++; belege(links, q); return true; }
+    }
+    const rechts = get(rr, cc + 1);
+    if (rechts !== undefined) {
+      const q = rects[rechts];
+      if (q.w < maxGroesse && spalteFrei(q.r, q.h, q.c - 1)) { q.c--; q.w++; belege(rechts, q); return true; }
+    }
+    const unten = get(rr + 1, cc);
+    if (unten !== undefined) {
+      const q = rects[unten];
+      if (q.h < maxGroesse && zeileFrei(q.c, q.w, q.r - 1)) { q.r--; q.h++; belege(unten, q); return true; }
+    }
+    return false;
+  }
+
+  let geaendert = true;
+  while (geaendert) {
+    geaendert = false;
+    suche:
+    for (let rr = 0; rr < zeilen; rr++) {
+      for (let cc = 0; cc < C; cc++) {
+        if (get(rr, cc) === undefined) {
+          if (versuche(rr, cc, 3) || versuche(rr, cc, 99)) { geaendert = true; break suche; }
+        }
+      }
+    }
+  }
+
+  // 3. Positionen übernehmen
+  grid.querySelectorAll(".slot").forEach(slot => {
+    const q = rects[slot.dataset.n];
+    slot.style.gridColumn = `${q.c + 1} / span ${q.w}`;
+    slot.style.gridRow = `${q.r + 1} / span ${q.h}`;
+    slot.classList.toggle("gross", q.w * q.h > 1);
+  });
+}
+
+layout();
+ladeTon(naechsteTuer());
+window.addEventListener("resize", () => { if (spalten() !== letzteSpalten) layout(); });
+
+/* Schneefall */
+(function () {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = document.getElementById("snow");
+  const ctx = c.getContext("2d");
+  let w, h, flakes;
+  function resize() {
+    w = c.width = window.innerWidth * devicePixelRatio;
+    h = c.height = window.innerHeight * devicePixelRatio;
+    const count = Math.min(160, Math.round(window.innerWidth / 8));
+    flakes = Array.from({ length: count }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      r: (Math.random() * 2.2 + .6) * devicePixelRatio,
+      s: (Math.random() * .6 + .3) * devicePixelRatio,
+      d: Math.random() * Math.PI * 2
+    }));
+  }
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    flakes.forEach(f => {
+      f.y += f.s; f.d += .01; f.x += Math.sin(f.d) * .4 * devicePixelRatio;
+      if (f.y > h) { f.y = -5; f.x = Math.random() * w; }
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
+    });
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener("resize", resize);
+  resize(); tick();
+})();
+</script>
+</body>
+</html>

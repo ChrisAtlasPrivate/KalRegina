@@ -179,6 +179,26 @@
   }
   .hinweis.sichtbar { opacity: 1; }
 
+  .lupe {
+    position: fixed; inset: 0; z-index: 10;
+    background: rgba(5, 12, 22, .6);
+    opacity: 0; transition: opacity .5s;
+    cursor: zoom-out;
+  }
+  .lupe.an { opacity: 1; }
+  .lupe-bild {
+    position: fixed; z-index: 11;
+    object-fit: contain; background: #faf6ee;
+    border-radius: 6px;
+    box-shadow: 0 20px 70px rgba(0,0,0,.6);
+    transition: left .6s cubic-bezier(.3,.7,.3,1), top .6s cubic-bezier(.3,.7,.3,1),
+                width .6s cubic-bezier(.3,.7,.3,1), height .6s cubic-bezier(.3,.7,.3,1),
+                border-radius .6s, opacity .4s;
+    pointer-events: none;
+  }
+  .lupe-bild.gross { border-radius: 14px; }
+  @media (prefers-reduced-motion: reduce) { .lupe-bild { transition: opacity .3s; } }
+
   footer { text-align: center; margin-top: 1.5rem; }
   @media (prefers-reduced-motion: reduce) { .door.wackeln { animation: none; } }
   .reset {
@@ -249,7 +269,7 @@
 
 <script>
 /* Versionsnummer: bei jeder Änderung erhöhen, sie steht unten auf der Seite */
-const VERSION = "1.2 (18.11.2026)";
+const VERSION = "1.3 (18.11.2026)";
 document.getElementById("version").textContent = "Version " + VERSION;
 /* ================================================================
    BILDER: Standardmäßig werden die Dateien im Ordner "bilder" geladen:
@@ -613,6 +633,48 @@ function stoppeTannenbaum() {
   setTimeout(() => g.disconnect(), 400);
 }
 
+/* Bild nach dem Öffnen kurz vergrößert zeigen */
+const LUPE_DAUER = 4000; // Millisekunden
+let lupe = null;
+function zeigeGross(n, slot) {
+  schliesseLupe(true);
+  const quelle = slot.querySelector(".inside img");
+  const start = quelle.getBoundingClientRect();
+  const bg = document.createElement("div");
+  bg.className = "lupe";
+  const bild = quelle.cloneNode();
+  bild.className = "lupe-bild";
+  bild.alt = "";
+  const setze = r => Object.assign(bild.style, {
+    left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px"
+  });
+  setze(start);
+  document.body.append(bg, bild);
+  const eintrag = { n, slot, bg, bild, setze, timer: null };
+  lupe = eintrag;
+  bg.addEventListener("click", () => schliesseLupe());
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (lupe !== eintrag) return;
+    const g = Math.min(window.innerWidth * 0.86, window.innerHeight * 0.8, 700);
+    setze({ left: (window.innerWidth - g) / 2, top: (window.innerHeight - g) / 2, width: g, height: g });
+    bild.classList.add("gross");
+    bg.classList.add("an");
+  }));
+  eintrag.timer = setTimeout(() => schliesseLupe(), LUPE_DAUER);
+}
+function schliesseLupe(sofort) {
+  const e = lupe;
+  if (!e) return;
+  lupe = null;
+  clearTimeout(e.timer);
+  if (sofort) { e.bg.remove(); e.bild.remove(); return; }
+  e.setze(e.slot.querySelector(".inside img").getBoundingClientRect());
+  e.bild.classList.remove("gross");
+  e.bg.classList.remove("an");
+  setTimeout(() => { e.bg.remove(); e.bild.remove(); }, 650);
+}
+let lupeTimer = null;
+
 function toggle(n, btn) {
   const idx = state.open.indexOf(n);
   if (idx === -1) {
@@ -628,9 +690,13 @@ function toggle(n, btn) {
     state.open.push(n);
     knarzen();
     spieleTon(n);
+    clearTimeout(lupeTimer);
+    lupeTimer = setTimeout(() => zeigeGross(n, btn.parentElement), 650);
   } else {
     state.open.splice(idx, 1);
     zuklappen();
+    clearTimeout(lupeTimer);
+    if (lupe && lupe.n === n) schliesseLupe(true);
     if (aktuellerTon && aktuellerTon.n === n) stoppeTon();
     else if (n === 24) stoppeTannenbaum();
   }
@@ -642,6 +708,8 @@ function toggle(n, btn) {
 
 document.getElementById("reset").addEventListener("click", () => {
   state.open = [];
+  clearTimeout(lupeTimer);
+  schliesseLupe(true);
   stoppeTon();
   speichere(state);
   document.querySelectorAll(".door").forEach(d => d.setAttribute("aria-pressed", "false"));
